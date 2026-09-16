@@ -1553,7 +1553,7 @@
         let targetHandScrollX = 0;
         let maxHandScroll = 0;
 
-        const playerCards = [];
+        let playerCards = [];
         let opponents = [];
 
         function arrangePlayerCards() {
@@ -2218,12 +2218,14 @@
                 if (UnoBridge && UnoBridge.broadcastMessage) {
                     UnoBridge.broadcastMessage({ message: payload }).catch(() => {});
                 }
-                handleMultiplayerServerMessage(msg);
+                // Asynchronously deliver to Host's local 3D view
+                setTimeout(() => handleMultiplayerServerMessage(msg), 0);
             }
 
             sendToClient(clientId, msg) {
                 if (clientId === null) {
-                    handleMultiplayerServerMessage(msg);
+                    // FIX: Process Host's local message asynchronously so it never blocks the guest broadcast loop
+                    setTimeout(() => handleMultiplayerServerMessage(msg), 0);
                 } else if (UnoBridge && UnoBridge.sendToClient) {
                     UnoBridge.sendToClient({ clientId: clientId, message: JSON.stringify(msg) }).catch(() => {});
                 }
@@ -2762,7 +2764,12 @@
                 setupOpponentsLayout(totalGamePlayers, mySeat, msg.players);
                 clearTableCards();
 
-                playerCards = [];
+                // FIX: Clear the const array properly and clear meshes
+                playerCards.length = 0;
+                while (playerHandGroup.children.length > 0) {
+                    playerHandGroup.remove(playerHandGroup.children[0]);
+                }
+
                 msg.myCards.forEach(c => {
                     const m = buildCardMesh(c, false, true);
                     playerCards.push(m);
@@ -3467,6 +3474,13 @@
             }
             clearTableCards();
             clearOpponents();
+
+            // FIX: Properly wipe player cards from the scene on exit
+            playerCards.length = 0;
+            while (playerHandGroup.children.length > 0) {
+                playerHandGroup.remove(playerHandGroup.children[0]);
+            }
+
             document.getElementById('draw-btn').style.display = 'none';
             document.getElementById('player-status-tag').style.display = 'none';
             renderer.domElement.style.pointerEvents = 'none';
