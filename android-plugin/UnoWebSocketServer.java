@@ -38,7 +38,6 @@ public class UnoWebSocketServer extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket conn, String message) {
-        // Milestone 1 Prototype test handler: reply to test_ping with test_pong
         if (message != null && message.contains("test_ping")) {
             conn.send("{\"type\":\"test_pong\",\"timestamp\":" + System.currentTimeMillis() + ",\"server\":\"Android-Native-WebSocket\"}");
             return;
