@@ -45,22 +45,32 @@ jobs:
           mkdir -p "$DEST_JAVA"
           cp android-plugin/*.java "$DEST_JAVA/"
 
-          echo "Adding Java-WebSocket dependency to android/app/build.gradle..."
-          GRADLE_FILE="android/app/build.gradle"
-          if ! grep -q "Java-WebSocket" "$GRADLE_FILE"; then
-            sed -i '/dependencies {/a \    implementation "org.java-websocket:Java-WebSocket:1.5.6"' "$GRADLE_FILE"
-          fi
+          echo "Configuring build.gradle and AndroidManifest.xml via Python..."
+          python3 -c '
+          # 1. Patch android/app/build.gradle
+          with open("android/app/build.gradle", "r") as f:
+              content = f.read()
+          if "Java-WebSocket" not in content:
+              content = content.replace("dependencies {", "dependencies {\n    implementation \"org.java-websocket:Java-WebSocket:1.5.6\"")
+              with open("android/app/build.gradle", "w") as f:
+                  f.write(content)
 
-          echo "Adding Network & Multicast permissions to AndroidManifest.xml..."
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if ! grep -q "CHANGE_WIFI_MULTICAST_STATE" "$MANIFEST"; then
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST"
-          fi
-
-          if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
-            echo "Patching AndroidManifest.xml to allow cleartext LAN traffic..."
-            sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
-          fi
+          # 2. Patch AndroidManifest.xml
+          with open("android/app/src/main/AndroidManifest.xml", "r") as f:
+              manifest = f.read()
+          if "CHANGE_WIFI_MULTICAST_STATE" not in manifest:
+              perms = """    <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+              <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
+          </manifest>"""
+              manifest = manifest.replace("</manifest>", perms)
+          if "usesCleartextTraffic" not in manifest:
+              manifest = manifest.replace("<application", "<application android:usesCleartextTraffic=\"true\"")
+          with open("android/app/src/main/AndroidManifest.xml", "w") as f:
+              f.write(manifest)
+          '
 
       - name: Grant Execute Permission to Gradlew
         run: chmod +x android/gradlew
